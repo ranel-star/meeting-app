@@ -6,7 +6,8 @@ Simple beginner-friendly Flask app with a short onboarding flow:
 2. Greeting
 3. Profile photo upload
 4. User preferences, including preferred gender and age range
-5. Full profile view
+5. Full profile summary
+6. Match check
 
 ## Run it locally
 

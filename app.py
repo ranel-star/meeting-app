@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from datetime import date
 from uuid import uuid4
 
 from flask import Flask, redirect, render_template_string, request, send_from_directory, session, url_for
@@ -205,6 +206,10 @@ PROFILE_TEMPLATE = """
           <span class="value">{{ user_gender }}</span>
         </div>
         <div class="detail">
+          <span class="label">Your age</span>
+          <span class="value">{{ user_age }}</span>
+        </div>
+        <div class="detail">
           <span class="label">Gender preference</span>
           <span class="value">{{ gender_preference }}</span>
         </div>
@@ -216,8 +221,105 @@ PROFILE_TEMPLATE = """
     </div>
 
     <div class="actions">
+      <a class="button" href="{{ url_for('match') }}">Find a match</a>
       <a class="button" href="{{ url_for('photo') }}">Update photo</a>
       <a class="button secondary" href="{{ url_for('preferences') }}">Edit preferences</a>
+      <a class="button secondary" href="{{ url_for('greeting') }}">Back to greeting</a>
+      <a class="button secondary" href="{{ url_for('reset') }}">Start over</a>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
+MATCH_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meeting App - Match</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: linear-gradient(180deg, #eef2ff 0%, #f5f7fb 100%); margin: 0; }
+    .card { max-width: 760px; margin: 48px auto; background: white; padding: 28px; border-radius: 20px; box-shadow: 0 18px 40px rgba(15,23,42,0.12); }
+    h1 { margin-top: 0; color: #1f2937; }
+    .small { color: #667085; font-size: 14px; }
+    .score { display: inline-block; margin: 10px 0 18px; padding: 10px 14px; border-radius: 999px; font-weight: 700; }
+    .match { background: #dcfce7; color: #166534; }
+    .no-match { background: #fee2e2; color: #991b1b; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
+    .panel { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; }
+    .avatar { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 18px; background: #eef2ff; border: 1px solid #dbe4ff; }
+    .avatar-placeholder { width: 100%; aspect-ratio: 1 / 1; border-radius: 18px; background: linear-gradient(135deg, #eef2ff, #f8fafc); border: 1px dashed #c7d2fe; display: grid; place-items: center; color: #6366f1; font-weight: bold; text-align: center; padding: 18px; box-sizing: border-box; }
+    .label { display: block; color: #6b7280; font-size: 13px; margin: 14px 0 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .value { display: block; color: #111827; font-size: 16px; font-weight: 600; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+    .button { display: inline-block; background: #4f46e5; color: white; padding: 12px 18px; border-radius: 10px; text-decoration: none; }
+    .secondary { background: #e5e7eb; color: #111827; }
+    @media (max-width: 720px) {
+      .card { margin: 18px; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Match result</h1>
+    <p class="small">We compared your profile with the best available candidate.</p>
+
+    {% if candidate %}
+      <div class="score {% if is_match %}match{% else %}no-match{% endif %}">
+        Compatibility: {{ compatibility_score }}%
+        {% if is_match %} - Match found{% else %} - Not a match{% endif %}
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <h2>Your profile</h2>
+          {% if user_photo_url %}
+            <img class="avatar" src="{{ user_photo_url }}" alt="Your profile photo">
+          {% else %}
+            <div class="avatar-placeholder">No profile photo</div>
+          {% endif %}
+          <span class="label">Username</span>
+          <span class="value">{{ username }}</span>
+          <span class="label">Gender</span>
+          <span class="value">{{ user_gender }}</span>
+          <span class="label">Preference</span>
+          <span class="value">{{ gender_preference }}</span>
+          <span class="label">Age</span>
+          <span class="value">{{ user_age }}</span>
+          <span class="label">Preferred age range</span>
+          <span class="value">{{ min_age }} - {{ max_age }}</span>
+        </div>
+
+        <div class="panel">
+          <h2>Candidate</h2>
+          {% if candidate_photo_url %}
+            <img class="avatar" src="{{ candidate_photo_url }}" alt="Candidate profile photo">
+          {% else %}
+            <div class="avatar-placeholder">No profile photo</div>
+          {% endif %}
+          <span class="label">Username</span>
+          <span class="value">{{ candidate_username }}</span>
+          <span class="label">Gender</span>
+          <span class="value">{{ candidate_gender }}</span>
+          <span class="label">Preference</span>
+          <span class="value">{{ candidate_preference }}</span>
+          <span class="label">Age</span>
+          <span class="value">{{ candidate_age }}</span>
+          <span class="label">Preferred age range</span>
+          <span class="value">{{ candidate_min_age }} - {{ candidate_max_age }}</span>
+        </div>
+      </div>
+    {% else %}
+      <div class="score no-match">No match candidates yet</div>
+      <p class="small">We could not find another completed profile to compare with yet.</p>
+    {% endif %}
+
+    <div class="actions">
+      <a class="button" href="{{ url_for('profile') }}">Back to profile</a>
       <a class="button secondary" href="{{ url_for('greeting') }}">Back to greeting</a>
       <a class="button secondary" href="{{ url_for('reset') }}">Start over</a>
     </div>
@@ -336,6 +438,73 @@ def get_db_connection():
 
 def allowed_photo_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_PHOTO_EXTENSIONS
+
+
+def calculate_age(birth_date_text: str) -> int | None:
+    try:
+        year, month, day = map(int, birth_date_text.split("-"))
+        birth_date = date(year, month, day)
+    except (ValueError, AttributeError):
+        return None
+
+    today = date.today()
+    return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+
+
+def preference_allows_gender(preference: str | None, gender: str | None) -> bool:
+    if not preference or preference in {"Everyone", "Prefer not to say"}:
+        return True
+    if not gender:
+        return False
+
+    matches = {
+        "Women": {"Woman"},
+        "Men": {"Man"},
+        "Non-binary": {"Non-binary"},
+    }
+    return gender in matches.get(preference, {gender})
+
+
+def has_uploaded_photo(user) -> bool:
+    return bool(user["profile_photo_filename"])
+
+
+def profile_is_complete(user) -> bool:
+    return all(
+        [
+            user["gender"],
+            user["gender_preference"],
+            user["min_age"] is not None,
+            user["max_age"] is not None,
+            has_uploaded_photo(user),
+        ]
+    )
+
+
+def next_profile_step(user) -> str | None:
+    if not has_uploaded_photo(user):
+        return "photo"
+    if not user["gender"] or not user["gender_preference"] or user["min_age"] is None or user["max_age"] is None:
+        return "preferences"
+    return None
+
+
+def calculate_match_score(user_a, user_b) -> int:
+    score = 0
+    user_a_age = calculate_age(user_a["birth_date"])
+    user_b_age = calculate_age(user_b["birth_date"])
+
+    if preference_allows_gender(user_a["gender_preference"], user_b["gender"]):
+        score += 25
+    if preference_allows_gender(user_b["gender_preference"], user_a["gender"]):
+        score += 25
+
+    if user_b_age is not None and user_a["min_age"] <= user_b_age <= user_a["max_age"]:
+        score += 25
+    if user_a_age is not None and user_b["min_age"] <= user_a_age <= user_b["max_age"]:
+        score += 25
+
+    return score
 
 
 def save_profile_photo(user_id: int, uploaded_file) -> str:
@@ -503,7 +672,6 @@ def photo():
         return redirect(url_for("login"))
 
     error = None
-    saved = request.args.get("saved") == "1"
     current_photo = user["profile_photo_filename"]
 
     if request.method == "POST":
@@ -515,14 +683,14 @@ def photo():
             error = "Please upload a JPG, PNG, GIF, or WEBP image."
         else:
             save_profile_photo(user["id"], uploaded_file)
-            return redirect(url_for("photo", saved="1"))
+            return redirect(url_for("profile"))
 
     photo_url = get_photo_url(current_photo)
     return render_template_string(
         PHOTO_TEMPLATE,
         photo_url=photo_url,
         error=error,
-        saved=saved,
+        saved=False,
     )
 
 
@@ -537,14 +705,87 @@ def profile():
     if user is None:
         return redirect(url_for("login"))
 
+    if not profile_is_complete(user):
+        missing_step = next_profile_step(user)
+        if missing_step is not None:
+            return redirect(url_for(missing_step))
+
     return render_template_string(
         PROFILE_TEMPLATE,
         username=user["display_name"],
         user_gender=user["gender"] or "Not set",
+        user_age=calculate_age(user["birth_date"]) or "Not set",
         gender_preference=user["gender_preference"] or "Not set",
         min_age=user["min_age"] or "Not set",
         max_age=user["max_age"] or "Not set",
         photo_url=get_photo_url(user["profile_photo_filename"]),
+    )
+
+
+@app.route("/match")
+def match():
+    user = get_current_user()
+    if user is None:
+        return redirect(url_for("login"))
+
+    if not profile_is_complete(user):
+        return redirect(url_for("profile"))
+
+    candidate_rows = []
+    with get_db_connection() as connection:
+        candidate_rows = connection.execute(
+            """
+            SELECT users.*, preferences.gender_preference, preferences.min_age, preferences.max_age,
+                   (
+                       SELECT p.url
+                       FROM photos AS p
+                       WHERE p.user_id = users.id
+                       ORDER BY p.is_primary DESC, p.created_at DESC, p.id DESC
+                       LIMIT 1
+                   ) AS profile_photo_filename
+            FROM users
+            JOIN preferences ON preferences.user_id = users.id
+            WHERE users.id <> ?
+              AND users.gender IS NOT NULL
+              AND preferences.gender_preference IS NOT NULL
+              AND preferences.min_age IS NOT NULL
+              AND preferences.max_age IS NOT NULL
+            """,
+            (user["id"],),
+        ).fetchall()
+
+    best_candidate = None
+    best_score = -1
+    for candidate in candidate_rows:
+        if not has_uploaded_photo(candidate):
+            continue
+        score = calculate_match_score(user, candidate)
+        if score > best_score:
+            best_score = score
+            best_candidate = candidate
+
+    if best_candidate is None:
+        return render_template_string(MATCH_TEMPLATE, candidate=None)
+
+    return render_template_string(
+        MATCH_TEMPLATE,
+        candidate=best_candidate,
+        is_match=best_score >= 80,
+        compatibility_score=best_score,
+        username=user["display_name"],
+        user_gender=user["gender"] or "Not set",
+        user_age=calculate_age(user["birth_date"]) or "Not set",
+        gender_preference=user["gender_preference"] or "Not set",
+        min_age=user["min_age"] or "Not set",
+        max_age=user["max_age"] or "Not set",
+        user_photo_url=get_photo_url(user["profile_photo_filename"]),
+        candidate_username=best_candidate["display_name"],
+        candidate_gender=best_candidate["gender"] or "Not set",
+        candidate_age=calculate_age(best_candidate["birth_date"]) or "Not set",
+        candidate_preference=best_candidate["gender_preference"] or "Not set",
+        candidate_min_age=best_candidate["min_age"] or "Not set",
+        candidate_max_age=best_candidate["max_age"] or "Not set",
+        candidate_photo_url=get_photo_url(best_candidate["profile_photo_filename"]),
     )
 
 
@@ -599,7 +840,7 @@ def preferences():
                 (user["id"], current_preference, current_min_age, current_max_age),
             )
             connection.commit()
-        saved = True
+        return redirect(url_for("profile"))
 
     return render_template_string(
         PREFERENCES_TEMPLATE,
