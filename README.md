@@ -1,10 +1,12 @@
 # Meeting App
 
-Simple beginner-friendly Flask app with 3 screens:
+Simple beginner-friendly Flask app with a short onboarding flow:
 
 1. Login
 2. Greeting
-3. User preferences
+3. Profile photo upload
+4. User preferences, including preferred gender and age range
+5. Full profile view
 
 ## Run it locally
 

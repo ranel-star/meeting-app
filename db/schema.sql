@@ -57,8 +57,11 @@ CREATE TABLE preferences (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id             INTEGER NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
     gender_preference   TEXT NOT NULL,
+    min_age             INTEGER NOT NULL DEFAULT 18,
+    max_age             INTEGER NOT NULL DEFAULT 99,
     created_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+    updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    CHECK (min_age <= max_age)
 );
 
 CREATE INDEX idx_photos_user_id ON photos (user_id);
