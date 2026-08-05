@@ -53,6 +53,14 @@ CREATE TABLE messages (
     read_at     TEXT
 );
 
+CREATE TABLE preferences (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
+    gender_preference   TEXT NOT NULL,
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX idx_photos_user_id ON photos (user_id);
 CREATE INDEX idx_swipes_swiper_id ON swipes (swiper_id);
 CREATE INDEX idx_swipes_swiped_id ON swipes (swiped_id);
