@@ -1,4 +1,4 @@
 # meeting-app
 
 The best matching app  
-SElect
+SElect your partner
