@@ -206,6 +206,10 @@ PROFILE_TEMPLATE = """
           <span class="value">{{ user_gender }}</span>
         </div>
         <div class="detail">
+          <span class="label">Your city</span>
+          <span class="value">{{ city }}</span>
+        </div>
+        <div class="detail">
           <span class="label">Your age</span>
           <span class="value">{{ user_age }}</span>
         </div>
@@ -286,6 +290,8 @@ MATCH_TEMPLATE = """
           <span class="value">{{ username }}</span>
           <span class="label">Gender</span>
           <span class="value">{{ user_gender }}</span>
+          <span class="label">City</span>
+          <span class="value">{{ city }}</span>
           <span class="label">Preference</span>
           <span class="value">{{ gender_preference }}</span>
           <span class="label">Age</span>
@@ -305,6 +311,8 @@ MATCH_TEMPLATE = """
           <span class="value">{{ candidate_username }}</span>
           <span class="label">Gender</span>
           <span class="value">{{ candidate_gender }}</span>
+          <span class="label">City</span>
+          <span class="value">{{ candidate_city }}</span>
           <span class="label">Preference</span>
           <span class="value">{{ candidate_preference }}</span>
           <span class="label">Age</span>
@@ -341,8 +349,8 @@ PREFERENCES_TEMPLATE = """
     .card { max-width: 520px; margin: 60px auto; background: white; padding: 28px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
     h1 { margin-top: 0; color: #2c3e50; }
     label { display: block; margin: 14px 0 6px; font-weight: bold; }
-    select, input[type="range"] { width: 100%; }
-    select { padding: 12px; border: 1px solid #ccd3dd; border-radius: 10px; box-sizing: border-box; }
+    select, input[type="text"], input[type="range"] { width: 100%; }
+    select, input[type="text"] { padding: 12px; border: 1px solid #ccd3dd; border-radius: 10px; box-sizing: border-box; }
     input[type="range"] { margin-top: 10px; }
     button, .button { display: inline-block; margin-top: 18px; background: #4f46e5; color: white; border: none; padding: 12px 18px; border-radius: 10px; text-decoration: none; cursor: pointer; }
     .summary { background: #ecfeff; padding: 14px; border-radius: 10px; margin-top: 18px; }
@@ -358,6 +366,9 @@ PREFERENCES_TEMPLATE = """
     <p class="small">Tell us a little about yourself.</p>
 
     <form method="post">
+      <label for="city">Your city</label>
+      <input id="city" name="city" type="text" placeholder="Enter your city" value="{{ city }}" required>
+
       <label for="user_gender">Your gender</label>
       <select id="user_gender" name="user_gender">
         {% for option in gender_options %}
@@ -391,6 +402,7 @@ PREFERENCES_TEMPLATE = """
       <div class="summary">
         <strong>Saved!</strong>
         <p>Username: {{ username }}</p>
+        <p>City: {{ city }}</p>
         <p>Gender: {{ user_gender }}</p>
         <p>Preference: {{ gender_preference }}</p>
         <p>Age range: {{ min_age }} - {{ max_age }}</p>
@@ -473,6 +485,7 @@ def profile_is_complete(user) -> bool:
     return all(
         [
             user["gender"],
+            user["city"],
             user["gender_preference"],
             user["min_age"] is not None,
             user["max_age"] is not None,
@@ -484,7 +497,13 @@ def profile_is_complete(user) -> bool:
 def next_profile_step(user) -> str | None:
     if not has_uploaded_photo(user):
         return "photo"
-    if not user["gender"] or not user["gender_preference"] or user["min_age"] is None or user["max_age"] is None:
+    if (
+        not user["city"]
+        or not user["gender"]
+        or not user["gender_preference"]
+        or user["min_age"] is None
+        or user["max_age"] is None
+    ):
         return "preferences"
     return None
 
@@ -714,6 +733,7 @@ def profile():
         PROFILE_TEMPLATE,
         username=user["display_name"],
         user_gender=user["gender"] or "Not set",
+        city=user["city"] or "Not set",
         user_age=calculate_age(user["birth_date"]) or "Not set",
         gender_preference=user["gender_preference"] or "Not set",
         min_age=user["min_age"] or "Not set",
@@ -774,6 +794,7 @@ def match():
         compatibility_score=best_score,
         username=user["display_name"],
         user_gender=user["gender"] or "Not set",
+        city=user["city"] or "Not set",
         user_age=calculate_age(user["birth_date"]) or "Not set",
         gender_preference=user["gender_preference"] or "Not set",
         min_age=user["min_age"] or "Not set",
@@ -781,6 +802,7 @@ def match():
         user_photo_url=get_photo_url(user["profile_photo_filename"]),
         candidate_username=best_candidate["display_name"],
         candidate_gender=best_candidate["gender"] or "Not set",
+        candidate_city=best_candidate["city"] or "Not set",
         candidate_age=calculate_age(best_candidate["birth_date"]) or "Not set",
         candidate_preference=best_candidate["gender_preference"] or "Not set",
         candidate_min_age=best_candidate["min_age"] or "Not set",
@@ -798,6 +820,7 @@ def preferences():
     gender_options = ["Woman", "Man", "Non-binary", "Prefer not to say"]
     preference_options = ["Women", "Men", "Everyone", "Prefer not to say"]
 
+    current_city = user["city"] or ""
     current_gender = user["gender"] or gender_options[0]
     current_preference = user["gender_preference"] or preference_options[2]
     current_min_age = user["min_age"] or 24
@@ -805,6 +828,7 @@ def preferences():
     saved = False
 
     if request.method == "POST":
+        current_city = request.form.get("city", "").strip()
         current_gender = request.form.get("user_gender", gender_options[0])
         current_preference = request.form.get("gender_preference", preference_options[2])
         current_min_age = request.form.get("min_age", current_min_age)
@@ -824,8 +848,8 @@ def preferences():
 
         with get_db_connection() as connection:
             connection.execute(
-                "UPDATE users SET gender = ?, updated_at = datetime('now') WHERE id = ?",
-                (current_gender, user["id"]),
+                "UPDATE users SET gender = ?, city = ?, updated_at = datetime('now') WHERE id = ?",
+                (current_gender, current_city, user["id"]),
             )
             connection.execute(
                 """
@@ -845,6 +869,7 @@ def preferences():
     return render_template_string(
         PREFERENCES_TEMPLATE,
         username=user["display_name"],
+        city=current_city,
         user_gender=current_gender,
         gender_preference=current_preference,
         min_age=current_min_age,
