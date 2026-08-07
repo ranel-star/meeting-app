@@ -30,6 +30,18 @@ The first time you run it, the SQLite database will be created automatically in:
 
 `db/meeting_app.sqlite3`
 
+## Fake demo data
+
+To rebuild the database with synthetic profiles, photos, preferences, swipes, matches, and messages:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\seed_fake_data.ps1
+```
+
+The seeded accounts all use:
+
+`Password123!`
+
 ## PythonAnywhere
 
 1. Upload the project files.
