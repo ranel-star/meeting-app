@@ -1,4 +1,5 @@
 import os
+import random
 import sqlite3
 from datetime import date
 from uuid import uuid4
@@ -774,18 +775,19 @@ def match():
             (user["id"],),
         ).fetchall()
 
-    best_candidate = None
-    best_score = -1
+    scored_candidates = []
     for candidate in candidate_rows:
         if not has_uploaded_photo(candidate):
             continue
         score = calculate_match_score(user, candidate)
-        if score > best_score:
-            best_score = score
-            best_candidate = candidate
+        scored_candidates.append((score, candidate))
 
-    if best_candidate is None:
+    if not scored_candidates:
         return render_template_string(MATCH_TEMPLATE, candidate=None)
+
+    best_score = max(score for score, _ in scored_candidates)
+    top_candidates = [candidate for score, candidate in scored_candidates if score == best_score]
+    best_candidate = random.choice(top_candidates)
 
     return render_template_string(
         MATCH_TEMPLATE,
