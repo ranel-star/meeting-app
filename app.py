@@ -251,8 +251,9 @@ MATCH_TEMPLATE = """
     h1 { margin-top: 0; color: #1f2937; }
     .small { color: #667085; font-size: 14px; }
     .score { display: inline-block; margin: 10px 0 18px; padding: 10px 14px; border-radius: 999px; font-weight: 700; }
-    .match { background: #dcfce7; color: #166534; }
-    .no-match { background: #fee2e2; color: #991b1b; }
+    .strong-match { background: #dcfce7; color: #166534; }
+    .good-candidate { background: #fef3c7; color: #92400e; }
+    .no-strong-match { background: #fee2e2; color: #991b1b; }
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
     .panel { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; }
     .avatar { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 18px; background: #eef2ff; border: 1px solid #dbe4ff; }
@@ -274,9 +275,9 @@ MATCH_TEMPLATE = """
     <p class="small">We compared your profile with the best available candidate.</p>
 
     {% if candidate %}
-      <div class="score {% if is_match %}match{% else %}no-match{% endif %}">
+      <div class="score {{ match_class }}">
         Compatibility: {{ compatibility_score }}%
-        {% if is_match %} - Match found{% else %} - Not a match{% endif %}
+        - {{ match_label }}
       </div>
 
       <div class="grid">
@@ -323,7 +324,7 @@ MATCH_TEMPLATE = """
         </div>
       </div>
     {% else %}
-      <div class="score no-match">No match candidates yet</div>
+      <div class="score no-strong-match">No match candidates yet</div>
       <p class="small">We could not find another completed profile to compare with yet.</p>
     {% endif %}
 
@@ -725,11 +726,6 @@ def profile():
     if user is None:
         return redirect(url_for("login"))
 
-    if not profile_is_complete(user):
-        missing_step = next_profile_step(user)
-        if missing_step is not None:
-            return redirect(url_for(missing_step))
-
     return render_template_string(
         PROFILE_TEMPLATE,
         username=user["display_name"],
@@ -789,10 +785,21 @@ def match():
     top_candidates = [candidate for score, candidate in scored_candidates if score == best_score]
     best_candidate = random.choice(top_candidates)
 
+    if best_score >= 80:
+        match_label = "Strong match"
+        match_class = "strong-match"
+    elif best_score >= 60:
+        match_label = "Pretty good fit"
+        match_class = "good-candidate"
+    else:
+        match_label = "No strong match yet"
+        match_class = "no-strong-match"
+
     return render_template_string(
         MATCH_TEMPLATE,
         candidate=best_candidate,
-        is_match=best_score >= 80,
+        match_label=match_label,
+        match_class=match_class,
         compatibility_score=best_score,
         username=user["display_name"],
         user_gender=user["gender"] or "Not set",
