@@ -20,6 +20,9 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-key-change-me")
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 
 
+# =============================================================================
+# Templates
+# =============================================================================
 LOGIN_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -62,6 +65,9 @@ LOGIN_TEMPLATE = """
 """
 
 
+# -----------------------------------------------------------------------------
+# Onboarding Templates
+# -----------------------------------------------------------------------------
 GREETING_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -216,6 +222,9 @@ PHOTO_CONFIRM_TEMPLATE = """
 """
 
 
+# -----------------------------------------------------------------------------
+# Profile Template
+# -----------------------------------------------------------------------------
 PROFILE_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -470,6 +479,9 @@ MATCHES_TEMPLATE = """
 """
 
 
+# -----------------------------------------------------------------------------
+# Matching / Conversation Templates
+# -----------------------------------------------------------------------------
 SUMMARY_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -866,6 +878,9 @@ PREFERENCES_TEMPLATE = """
 """
 
 
+# =============================================================================
+# Helper Functions
+# =============================================================================
 def get_db_connection():
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
@@ -1401,9 +1416,15 @@ def get_photo_url(photo_filename):
     return url_for("uploaded_photo", filename=photo_filename) if photo_filename else None
 
 
+# =============================================================================
+# App Initialization
+# =============================================================================
 init_db()
 
 
+# =============================================================================
+# Authentication and Onboarding Routes
+# =============================================================================
 @app.route("/", methods=["GET", "POST"])
 def login():
     error = None
@@ -1534,6 +1555,9 @@ def profile():
     )
 
 
+# =============================================================================
+# Match Engine and Conversation Data
+# =============================================================================
 @app.route("/match", methods=["GET", "POST"])
 def match():
     user = get_current_user()
@@ -1643,6 +1667,9 @@ def match():
     )
 
 
+# =============================================================================
+# Matches Page
+# =============================================================================
 def render_matches_page(user, requested_match_id: int | None = None):
     with get_db_connection() as connection:
         matches, selected_match, selected_messages, previous_match, next_match = fetch_matches_page_state(
@@ -1686,6 +1713,9 @@ def conclusion():
     return render_matches_page(user, requested_match_id)
 
 
+# =============================================================================
+# Preferences Route
+# =============================================================================
 @app.route("/preferences", methods=["GET", "POST"])
 def preferences():
     user = get_current_user()
@@ -1755,6 +1785,9 @@ def preferences():
     )
 
 
+# =============================================================================
+# Session Reset
+# =============================================================================
 @app.route("/reset")
 def reset():
     session.clear()
