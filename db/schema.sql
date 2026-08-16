@@ -57,6 +57,7 @@ CREATE TABLE preferences (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id             INTEGER NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
     gender_preference   TEXT NOT NULL,
+    current_age         INTEGER,
     min_age             INTEGER NOT NULL DEFAULT 18,
     max_age             INTEGER NOT NULL DEFAULT 99,
     created_at          TEXT NOT NULL DEFAULT (datetime('now')),

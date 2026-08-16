@@ -810,12 +810,8 @@ PREFERENCES_TEMPLATE = """
       <label for="city">Your city</label>
       <input id="city" name="city" type="text" placeholder="Enter your city" value="{{ city }}" required>
 
-      <div class="info-row">
-        <span class="info-label">Your age</span>
-        <div class="info-box">
-          <span class="info-value">{{ user_age }}</span>
-        </div>
-      </div>
+      <label for="current_age">Your age</label>
+      <input id="current_age" name="current_age" type="number" min="18" max="99" step="1" placeholder="Enter your current age" value="{{ current_age }}">
 
       <label for="user_gender">Your gender</label>
       <select id="user_gender" name="user_gender">
@@ -851,7 +847,7 @@ PREFERENCES_TEMPLATE = """
         <strong>Saved!</strong>
         <p>Username: {{ username }}</p>
         <p>City: {{ city }}</p>
-        <p>Age: {{ user_age }}</p>
+        <p>Age: {{ current_age if current_age is not none else "Not set" }}</p>
         <p>Gender: {{ user_gender }}</p>
         <p>Preference: {{ gender_preference }}</p>
         <p>Age range: {{ min_age }} - {{ max_age }}</p>
@@ -915,6 +911,18 @@ def calculate_age(birth_date_text: str) -> int | None:
     return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
 
 
+def resolve_user_age(user) -> int | None:
+    try:
+        current_age = user["current_age"]
+    except (KeyError, IndexError, TypeError):
+        current_age = None
+
+    if current_age is not None:
+        return current_age
+
+    return calculate_age(user["birth_date"])
+
+
 def preference_allows_gender(preference: str | None, gender: str | None) -> bool:
     if not preference or preference in {"Everyone", "Prefer not to say"}:
         return True
@@ -959,8 +967,8 @@ def next_profile_step(user) -> str | None:
 
 def calculate_match_score(user_a, user_b) -> int:
     score = 0
-    user_a_age = calculate_age(user_a["birth_date"])
-    user_b_age = calculate_age(user_b["birth_date"])
+    user_a_age = resolve_user_age(user_a)
+    user_b_age = resolve_user_age(user_b)
 
     if preference_allows_gender(user_a["gender_preference"], user_b["gender"]):
         score += 25
@@ -995,7 +1003,7 @@ def fetch_scored_candidates(connection, current_user, excluded_ids: set[int] | N
 
     candidate_rows = connection.execute(
         """
-        SELECT users.*, preferences.gender_preference, preferences.min_age, preferences.max_age,
+        SELECT users.*, preferences.gender_preference, preferences.current_age, preferences.min_age, preferences.max_age,
                (
                    SELECT p.url
                    FROM photos AS p
@@ -1029,7 +1037,7 @@ def fetch_scored_candidates(connection, current_user, excluded_ids: set[int] | N
 def fetch_match_candidate(connection, current_user_id: int, candidate_id: int):
     return connection.execute(
         """
-        SELECT users.*, preferences.gender_preference, preferences.min_age, preferences.max_age,
+        SELECT users.*, preferences.gender_preference, preferences.current_age, preferences.min_age, preferences.max_age,
                (
                    SELECT p.url
                    FROM photos AS p
@@ -1325,6 +1333,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
                 gender_preference TEXT NOT NULL,
+                current_age INTEGER,
                 min_age INTEGER NOT NULL DEFAULT 18,
                 max_age INTEGER NOT NULL DEFAULT 99,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -1364,6 +1373,10 @@ def init_db():
         if "min_age" not in preferences_columns:
             connection.execute(
                 "ALTER TABLE preferences ADD COLUMN min_age INTEGER NOT NULL DEFAULT 18"
+            )
+        if "current_age" not in preferences_columns:
+            connection.execute(
+                "ALTER TABLE preferences ADD COLUMN current_age INTEGER"
             )
         if "max_age" not in preferences_columns:
             connection.execute(
@@ -1408,7 +1421,7 @@ def get_current_user():
     with get_db_connection() as connection:
         return connection.execute(
             """
-            SELECT users.*, preferences.gender_preference, preferences.min_age, preferences.max_age,
+            SELECT users.*, preferences.gender_preference, preferences.current_age, preferences.min_age, preferences.max_age,
                    (
                        SELECT p.url
                        FROM photos AS p
@@ -1551,7 +1564,7 @@ def profile():
         username=user["display_name"],
         user_gender=user["gender"] or "Not set",
         city=user["city"] or "Not set",
-        user_age=calculate_age(user["birth_date"]) or "Not set",
+        user_age=resolve_user_age(user) or "Not set",
         gender_preference=user["gender_preference"] or "Not set",
         min_age=user["min_age"] or "Not set",
         max_age=user["max_age"] or "Not set",
@@ -1657,7 +1670,7 @@ def match():
         username=user["display_name"],
         user_gender=user["gender"] or "Not set",
         city=user["city"] or "Not set",
-        user_age=calculate_age(user["birth_date"]) or "Not set",
+        user_age=resolve_user_age(user) or "Not set",
         gender_preference=user["gender_preference"] or "Not set",
         min_age=user["min_age"] or "Not set",
         max_age=user["max_age"] or "Not set",
@@ -1666,7 +1679,7 @@ def match():
         candidate_username=selected_candidate["display_name"],
         candidate_gender=selected_candidate["gender"] or "Not set",
         candidate_city=selected_candidate["city"] or "Not set",
-        candidate_age=calculate_age(selected_candidate["birth_date"]) or "Not set",
+        candidate_age=resolve_user_age(selected_candidate) or "Not set",
         candidate_preference=selected_candidate["gender_preference"] or "Not set",
         candidate_min_age=selected_candidate["min_age"] or "Not set",
         candidate_max_age=selected_candidate["max_age"] or "Not set",
@@ -1738,6 +1751,7 @@ def preferences():
     preference_options = ["Women", "Men", "Everyone", "Prefer not to say"]
 
     current_city = user["city"] or ""
+    current_age = user["current_age"] if user["current_age"] is not None else ""
     current_gender = user["gender"] or gender_options[0]
     current_preference = user["gender_preference"] or preference_options[2]
     current_min_age = user["min_age"] or 24
@@ -1746,18 +1760,23 @@ def preferences():
 
     if request.method == "POST":
         current_city = request.form.get("city", "").strip()
+        current_age = request.form.get("current_age", current_age)
         current_gender = request.form.get("user_gender", gender_options[0])
         current_preference = request.form.get("gender_preference", preference_options[2])
         current_min_age = request.form.get("min_age", current_min_age)
         current_max_age = request.form.get("max_age", current_max_age)
 
         try:
+            current_age = int(current_age) if current_age not in ("", None) else None
             current_min_age = int(current_min_age)
             current_max_age = int(current_max_age)
         except (TypeError, ValueError):
+            current_age = user["current_age"]
             current_min_age = 24
             current_max_age = 35
 
+        if current_age is not None:
+            current_age = max(18, min(current_age, 99))
         current_min_age = max(18, min(current_min_age, 99))
         current_max_age = max(18, min(current_max_age, 99))
         if current_min_age > current_max_age:
@@ -1770,15 +1789,16 @@ def preferences():
             )
             connection.execute(
                 """
-                INSERT INTO preferences (user_id, gender_preference, min_age, max_age)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO preferences (user_id, gender_preference, current_age, min_age, max_age)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET
                     gender_preference = excluded.gender_preference,
+                    current_age = excluded.current_age,
                     min_age = excluded.min_age,
                     max_age = excluded.max_age,
                     updated_at = datetime('now')
                 """,
-                (user["id"], current_preference, current_min_age, current_max_age),
+                (user["id"], current_preference, current_age, current_min_age, current_max_age),
             )
             connection.commit()
         return redirect(url_for("photo"))
@@ -1787,7 +1807,7 @@ def preferences():
         PREFERENCES_TEMPLATE,
         username=user["display_name"],
         city=current_city,
-        user_age=calculate_age(user["birth_date"]) or "Not set",
+        current_age=current_age,
         user_gender=current_gender,
         gender_preference=current_preference,
         min_age=current_min_age,

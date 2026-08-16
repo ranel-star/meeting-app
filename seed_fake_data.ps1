@@ -376,11 +376,12 @@ VALUES (@email, @password_hash, @display_name, @birth_date, @gender, @bio, @city
     $preference = New-Preference -Rng $rng -Gender $user['gender']
 
     Invoke-SqliteNonQuery -Connection $connection -Transaction $transaction -Sql @'
-INSERT INTO preferences (user_id, gender_preference, min_age, max_age, created_at, updated_at)
-VALUES (@user_id, @gender_preference, @min_age, @max_age, @created_at, @updated_at)
+INSERT INTO preferences (user_id, gender_preference, current_age, min_age, max_age, created_at, updated_at)
+VALUES (@user_id, @gender_preference, @current_age, @min_age, @max_age, @created_at, @updated_at)
 '@ -Parameters @{
       user_id = $user['id']
       gender_preference = $preference
+      current_age = $age
       min_age = $minAge
       max_age = $maxAge
       created_at = $user['created_at']
