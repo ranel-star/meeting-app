@@ -792,6 +792,10 @@ PREFERENCES_TEMPLATE = """
     button, .button { display: inline-block; margin-top: 18px; background: #4f46e5; color: white; border: none; padding: 12px 18px; border-radius: 10px; text-decoration: none; cursor: pointer; }
     .summary { background: #ecfeff; padding: 14px; border-radius: 10px; margin-top: 18px; }
     .small { color: #667085; font-size: 14px; }
+    .info-row { margin-top: 14px; }
+    .info-box { padding: 12px; border: 1px solid #dbe4ff; border-radius: 10px; background: #f8fafc; }
+    .info-label { display: block; color: #6b7280; font-size: 13px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .info-value { display: block; color: #111827; font-size: 16px; font-weight: 600; }
     .range-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
     .value-pill { background: #eef2ff; color: #3730a3; padding: 6px 10px; border-radius: 999px; font-size: 14px; font-weight: bold; min-width: 64px; text-align: center; }
     .secondary { background: #e5e7eb; color: #111827; }
@@ -805,6 +809,13 @@ PREFERENCES_TEMPLATE = """
     <form method="post">
       <label for="city">Your city</label>
       <input id="city" name="city" type="text" placeholder="Enter your city" value="{{ city }}" required>
+
+      <div class="info-row">
+        <span class="info-label">Your age</span>
+        <div class="info-box">
+          <span class="info-value">{{ user_age }}</span>
+        </div>
+      </div>
 
       <label for="user_gender">Your gender</label>
       <select id="user_gender" name="user_gender">
@@ -840,6 +851,7 @@ PREFERENCES_TEMPLATE = """
         <strong>Saved!</strong>
         <p>Username: {{ username }}</p>
         <p>City: {{ city }}</p>
+        <p>Age: {{ user_age }}</p>
         <p>Gender: {{ user_gender }}</p>
         <p>Preference: {{ gender_preference }}</p>
         <p>Age range: {{ min_age }} - {{ max_age }}</p>
@@ -1775,6 +1787,7 @@ def preferences():
         PREFERENCES_TEMPLATE,
         username=user["display_name"],
         city=current_city,
+        user_age=calculate_age(user["birth_date"]) or "Not set",
         user_gender=current_gender,
         gender_preference=current_preference,
         min_age=current_min_age,
